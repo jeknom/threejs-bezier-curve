@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+        <link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet'>
+		<title>Bezier Curves</title>
+		<style>
+			body { 
+                margin: 0; 
+            }
+
+            a {
+                border:none;
+                outline:none;
+                text-decoration:none;
+                color:inherit;
+            }
+
+            .header {
+                position: absolute;
+                top: 10px;
+                left: 0; 
+                right: 0; 
+                margin-left: auto; 
+                margin-right: auto;
+                width: 500px;
+                color: white;
+                border: 1px solid white;
+                border-radius: .2rem;
+                padding: .1rem 1rem .1rem 1rem;
+                font-family: 'Roboto';
+                font-size: 22px;
+            }
+
+            .profile-link {
+                position: absolute;
+                right: .5rem;
+                top: .1rem;
+                display: flex;
+                flex-direction: row;
+                font-size: 12px;
+                gap: .5rem;
+                align-items: center;
+            }
+		</style>
+	</head>
+	<body>
+        <div class="header">
+            <h3>Bézier Curve demo</h3>
+            <p id="instruction"></p>
+            <a href="https://github.com/jeknom" target="_blank">
+            <div class="profile-link">
+                    <p>Made by jeknom</p>
+                    <img
+                        src="./assets/github-logo.png"
+                        alt="GitHub logo linking to my profile"
+                        height="16"
+                        width="16"
+                    />
+                </div>
+            </a>
+        </div>
+		<script src="js/three.js"></script>
+		<script>
+            // Setup scene and camera
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+            const renderer = new THREE.WebGLRenderer();
+            
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            document.body.appendChild( renderer.domElement );
+            camera.position.z = 5;
+
+            let bezierPoints = [];
+
+            window.addEventListener('resize', () => onWindowResize(camera, renderer), false);
+            document.addEventListener('click', onClick);
+            const movingCube = createCube(scene, -4, 0, 0, .1, .1, .1, 0x0088ff);
+
+            let t = 0;
+            let trailPoints = [];
+
+            // Function from:
+            // https://stackoverflow.com/questions/16227300/how-to-draw-bezier-curves-with-native-javascript-code-without-ctx-beziercurveto
+            function getPositionInBezier(t, p0, p1, p2, p3) {
+                const cX = 3 * (p1.x - p0.x),
+                    bX = 3 * (p2.x - p1.x) - cX,
+                    aX = p3.x - p0.x - cX - bX;
+
+                const cY = 3 * (p1.y - p0.y),
+                    bY = 3 * (p2.y - p1.y) - cY,
+                    aY = p3.y - p0.y - cY - bY;
+
+                const x = (aX * Math.pow(t, 3)) + (bX * Math.pow(t, 2)) + (cX * t) + p0.x;
+                const y = (aY * Math.pow(t, 3)) + (bY * Math.pow(t, 2)) + (cY * t) + p0.y;
+
+                return {x: x, y: y};
+            }
+
+            function createCube(
+                scene,
+                x,
+                y,
+                z,
+                scaleX = .1,
+                scaleY = .1,
+                scaleZ = .1,
+                color = 0x00ff00
+            ) {
+                const geometry = new THREE.BoxGeometry(scaleX, scaleY, scaleZ);
+                const material = new THREE.MeshBasicMaterial({ color });
+                const cube = new THREE.Mesh( geometry, material );
+                
+                scene.add( cube );
+                cube.position.x = x;
+                cube.position.y = y;
+                cube.position.z = z;
+
+                return cube;
+            }
+
+            function onClick(event) {
+                // We need to wait for the cube to finish its movement
+                if (bezierPoints.length > 2) {
+                    return;
+                }
+
+                // Getting mouse position to which the bezier point will be spawned
+                const pointerScreenPosition = new THREE.Vector3();
+                const pointerScenePosition = new THREE.Vector3();
+                pointerScreenPosition.set(
+                    (event.clientX / window.innerWidth) * 2 - 1,
+                    -(event.clientY / window.innerHeight) * 2 + 1,
+                    0.5
+                );
+                pointerScreenPosition.unproject( camera );
+                pointerScreenPosition.sub(camera.position).normalize();
+                const distance = - camera.position.z / pointerScreenPosition.z;
+                pointerScenePosition.copy(camera.position).add(pointerScreenPosition.multiplyScalar(distance));
+
+                // Spawning the bezier point
+                bezierPoints.push(createCube(
+                    scene,
+                    pointerScenePosition.x,
+                    pointerScenePosition.y,
+                    0,
+                    .05,
+                    .05,
+                    .05,
+                    0xbcfc77
+                ));
+            }
+
+            function onWindowResize(camera, renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize( window.innerWidth, window.innerHeight );
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                const bezierPointsCount = bezierPoints.length;
+                if (bezierPointsCount < 3) {
+                    document.getElementById('instruction').innerHTML = `Place ${3 - bezierPointsCount} points by clicking on the screen`;
+                }
+                else if (bezierPointsCount === 3) {
+                    document.getElementById('instruction').innerHTML = 'Firing away!';
+
+                    const newPos = getPositionInBezier(
+                        t,
+                        {x: movingCube.position.x, y: movingCube.position.y },
+                        {x: bezierPoints[0].position.x, y: bezierPoints[0].position.y },
+                        {x: bezierPoints[1].position.x, y: bezierPoints[1].position.y },
+                        {x: bezierPoints[2].position.x, y: bezierPoints[2].position.y }
+                    );
+
+                    movingCube.position.x = newPos.x;
+                    movingCube.position.y = newPos.y;
+                    movingCube.position.z = .1;
+
+                    const trailPointScale = t * 100 * .0009;
+                    trailPoints.push(createCube(
+                        scene,
+                        movingCube.position.x,
+                        movingCube.position.y,
+                        movingCube.position.z,
+                        trailPointScale,
+                        trailPointScale,
+                        trailPointScale,
+                        0xbddeff
+                    ));
+
+                    t += 0.01;
+
+                    // Clear up
+                    if (t > 1) {
+                        t = 0
+                        trailPoints.concat(bezierPoints).forEach(p => {
+                            p.geometry.dispose();
+                            p.material.dispose();
+                            scene.remove(p);
+                        });
+
+
+                        trailPoints = [];
+                        bezierPoints = [];
+                    }
+                }
+
+                renderer.render( scene, camera );
+            }
+            
+            animate();
+		</script>
+	</body>
+</html>

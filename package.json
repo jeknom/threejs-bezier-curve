@@ -1,11 +1,15 @@
 {
   "name": "threejs-bezier-curve",
-  "type": "module",
   "version": "0.0.1",
   "description": "A demo project to learn about bezier curves and threejs",
   "main": "index.js",
   "author": "Johannes Palvanen",
   "license": "MIT",
   "private": false,
-  "dependencies": {}
+  "dependencies": {
+    "express": "^4.18.1"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
 }
